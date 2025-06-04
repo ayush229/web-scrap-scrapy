@@ -91,8 +91,8 @@ def find_relevant_content(scraped_data, query):
 
     # Iterate through each page's results
     for page_result in scraped_data.get("results", []):
-        if page_result.get("type") == "beautify" and "content" in page_result.get("data", {}):
-            for section in page_result["data"]["content"]:
+        if page_result.get("type") == "beautify" and "data" in page_result: # Check if 'data' key exists
+            for section in page_result["data"].get("sections", []): # Iterate over 'sections' list
                 section_text = []
                 if section.get("heading") and section["heading"].get("text"):
                     section_text.append(section["heading"]["text"].lower())
@@ -135,8 +135,8 @@ def run_scrapy_spider(urls_str, scrape_mode, crawl_enabled, max_pages, unique_co
         '-a', f'scrape_mode={scrape_mode}',
         '-a', f'crawl_enabled={str(crawl_enabled).lower()}', # Scrapy spider expects string 'true'/'false'
         '-a', f'max_pages={max_pages}',
-        '-a', f'unique_code={unique_code}', # Pass unique_code for the spider to use in output filename
-        '-o', output_filepath # Scrapy will write the output here. Overwrites by default.
+        # Pass the output_filepath directly as an argument to the spider's __init__
+        '-a', f'output_file={output_filepath}' 
     ]
     
     logger.info(f"Running Scrapy command: {' '.join(command)}")
@@ -208,7 +208,7 @@ def scrape_and_store():
         scrape_mode='beautify', # Always beautify for storage
         crawl_enabled=True, # Enable crawling by default for scrape_and_store
         max_pages=50, # Default max_pages for storage
-        unique_code=unique_code
+        unique_code=unique_code # Pass unique_code for potential spider internal use, though output_file is primary for saving
     )
 
     if scrapy_result and scrapy_result.get("status") == "success":
@@ -377,8 +377,8 @@ def scrape():
             # Consolidate content for AI
             full_text_content = []
             for page_res in extracted_data:
-                if page_res.get("type") == "beautify" and "content" in page_res.get("data", {}):
-                    for section in page_res["data"]["content"]:
+                if page_res.get("type") == "beautify" and "data" in page_res: # Check if 'data' key exists
+                    for section in page_res["data"].get("sections", []): # Iterate over 'sections' list
                         if section.get("heading") and section["heading"].get("text"):
                             full_text_content.append(section["heading"]["text"])
                         full_text_content.extend(section.get("content", []))
@@ -463,7 +463,7 @@ def update_agent(unique_code):
         scrape_mode='beautify',
         crawl_enabled=True,
         max_pages=50,
-        unique_code=unique_code # Use the existing unique_code to overwrite
+        unique_code=unique_code # Pass unique_code for potential spider internal use, though output_file is primary for saving
     )
 
     if scrapy_result and scrapy_result.get("status") == "success":
@@ -515,6 +515,7 @@ def delete_agent(unique_code):
     except Exception as e:
          error_message = f"Unexpected error during agent deletion {unique_code}: {e}\n{traceback.format_exc()}"
          logger.error(error_message)
+         print(error_message)
          return jsonify({"status": "error", "error": "An unexpected error occurred during deletion"}), 500
 
 
