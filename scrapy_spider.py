@@ -21,7 +21,7 @@ class GeneralPurposeSpider(scrapy.Spider):
 
     def __init__(self, *args, **kwargs):
         super(GeneralPurposeSpider, self).__init__(*args, **kwargs)
-        self.start_urls = kwargs.get('start_urls', '').split(',') [cite: 67]
+        self.start_urls = kwargs.get('start_urls', '').split(',')
         self.start_urls = [u.strip() for u in self.start_urls if u.strip()]
 
         if not self.start_urls:
@@ -32,7 +32,7 @@ class GeneralPurposeSpider(scrapy.Spider):
         self.max_pages = int(kwargs.get('max_pages', 50))
         self.output_file = kwargs.get('output_file')
 
-        if not self.output_file: [cite: 68]
+        if not self.output_file:
             raise ValueError("output_file parameter is required for the spider.")
 
         # Determine allowed_domains from the first URL for crawling
@@ -40,7 +40,7 @@ class GeneralPurposeSpider(scrapy.Spider):
         if self.start_urls:
             parsed_start_url = urlparse(self.start_urls[0])
             self.allowed_domains_list.append(parsed_start_url.netloc)
-            self.domain_to_crawl = parsed_start_url.netloc [cite: 69]
+            self.domain_to_crawl = parsed_start_url.netloc
 
         self.pages_crawled_count = 0
         self.results = [] # To accumulate all results before writing to file
@@ -52,7 +52,7 @@ class GeneralPurposeSpider(scrapy.Spider):
             yield scrapy.Request(url=url, callback=self.parse_page, meta={'depth': 0})
 
     def parse_page(self, response):
-        self.pages_crawled_count += 1 [cite: 70]
+        self.pages_crawled_count += 1
         logger.info(f"Processing page {self.pages_crawled_count}/{self.max_pages}: {response.url}")
 
         item = PageContentItem()
@@ -63,7 +63,7 @@ class GeneralPurposeSpider(scrapy.Spider):
         if self.scrape_mode == 'raw':
             item['data'] = response.text
             item['error'] = None
-        elif self.scrape_mode == 'beautify': [cite: 71]
+        elif self.scrape_mode == 'beautify':
             content_data = []
             extracted_links = []
 
@@ -77,18 +77,18 @@ class GeneralPurposeSpider(scrapy.Spider):
                 content_sections = response.xpath('//body')
 
             for sec in content_sections:
-                section_data = { [cite: 74]
+                section_data = {
                     "heading": None,
                     "content": [],
                     "images": [],
                     "links": []
-                } [cite: 75]
+                }
 
                 # Extract headings
                 heading_tags = sec.xpath('.//h1|.//h2|.//h3|.//h4|.//h5|.//h6')
                 if heading_tags:
                     # Take the first non-empty heading
-                    for h in heading_tags: [cite: 76]
+                    for h in heading_tags:
                         h_text = h.xpath('string()').get(default='').strip()
                         if h_text:
                             section_data["heading"] = {"tag": h.xpath('name()').get(), "text": h_text}
@@ -97,24 +97,24 @@ class GeneralPurposeSpider(scrapy.Spider):
                 # Extract paragraphs and list items
                 paragraphs_and_lists = sec.xpath('.//p|.//li')
                 for p_or_li in paragraphs_and_lists:
-                    text = p_or_li.xpath('string()').get(default='').strip() [cite: 78]
+                    text = p_or_li.xpath('string()').get(default='').strip()
                     if text:
                         section_data["content"].append(text)
 
                 # Extract images
                 for img in sec.xpath('.//img/@src').getall():
-                    abs_url = urljoin(response.url, img) [cite: 79]
+                    abs_url = urljoin(response.url, img)
                     section_data["images"].append(abs_url)
 
                 # Extract links for crawling if enabled
                 for a_href in sec.xpath('.//a/@href').getall():
                     # Construct absolute URL and remove fragment (hash anchor)
-                    abs_url = urljoin(response.url, a_href).split('#')[0].rstrip('/') [cite: 80]
+                    abs_url = urljoin(response.url, a_href).split('#')[0].rstrip('/')
                     section_data["links"].append(abs_url)
                     extracted_links.append(abs_url) # Collect all links for potential follow-up
 
                 # Only add sections that have actual content
-                if section_data["heading"] or section_data["content"] or section_data["images"] or section_data["links"]: [cite: 81]
+                if section_data["heading"] or section_data["content"] or section_data["images"] or section_data["links"]:
                     content_data.append(section_data)
 
             item['data'] = {"sections": content_data}
@@ -122,7 +122,7 @@ class GeneralPurposeSpider(scrapy.Spider):
 
             # --- Crawling Logic ---
             if self.crawl_enabled and self.pages_crawled_count < self.max_pages:
-                current_depth = response.meta.get('depth', 0) [cite: 82]
+                current_depth = response.meta.get('depth', 0)
                 next_depth = current_depth + 1
 
                 for link in extracted_links:
@@ -136,10 +136,10 @@ class GeneralPurposeSpider(scrapy.Spider):
                         if link not in response.request.meta.get('crawled_urls', set()): # Avoid re-requesting in the same crawl
                             # We need to pass the scrape_mode and other args to the next request
                             yield scrapy.Request(
-                                url=link, [cite: 86]
+                                url=link,
                                 callback=self.parse_page,
                                 meta={'depth': next_depth, 'crawled_urls': response.request.meta.get('crawled_urls', set()) | {link}}
-                            ) [cite: 87]
+                            )
 
         self.results.append(dict(item)) # Convert Item to dict and store
 
@@ -148,7 +148,7 @@ class GeneralPurposeSpider(scrapy.Spider):
         logger.info(f"Spider finished. Reason: {reason}. Total pages processed: {self.pages_crawled_count}")
         # Ensure the directory exists before writing
         output_dir = os.path.dirname(self.output_file)
-        if output_dir and not os.path.exists(output_dir): [cite: 88]
+        if output_dir and not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
         # Write all results to the output file
@@ -156,7 +156,7 @@ class GeneralPurposeSpider(scrapy.Spider):
             "spider_name": self.name,
             "start_urls": self.start_urls,
             "scrape_mode": self.scrape_mode,
-            "crawl_enabled": self.crawl_enabled, [cite: 89]
+            "crawl_enabled": self.crawl_enabled,
             "max_pages": self.max_pages,
             "total_pages_crawled": self.pages_crawled_count,
             "results": self.results,
@@ -164,13 +164,13 @@ class GeneralPurposeSpider(scrapy.Spider):
         }
         try:
             with open(self.output_file, 'w', encoding='utf-8') as f:
-                json.dump(final_output, f, ensure_ascii=False, indent=4) [cite: 90]
+                json.dump(final_output, f, ensure_ascii=False, indent=4)
             logger.info(f"Spider results successfully written to {self.output_file}")
         except Exception as e:
             logger.error(f"Error writing spider results to file {self.output_file}: {e}")
 
 # This part is for running the spider from an external script
-# (e.g., your Flask app).  It will not be directly executed when `scrapy_spider.py`
+# (e.g., your Flask app). It will not be directly executed when `scrapy_spider.py`
 # is imported by Scrapy itself. 
 if __name__ == '__main__':
     from scrapy.crawler import CrawlerProcess
@@ -200,10 +200,10 @@ if __name__ == '__main__':
     # Pass all arguments to the spider 
     process = CrawlerProcess(settings)
     process.crawl(GeneralPurposeSpider,
-                  start_urls=args.start_urls,
-                  scrape_mode=args.scrape_mode,
-                  crawl_enabled=args.crawl_enabled,
-                  max_pages=args.max_pages,
-                  output_file=args.output_file) [cite: 95]
+                    start_urls=args.start_urls,
+                    scrape_mode=args.scrape_mode,
+                    crawl_enabled=args.crawl_enabled,
+                    max_pages=args.max_pages,
+                    output_file=args.output_file)
     
     process.start() # The script will block here until the crawl finishes
