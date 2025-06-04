@@ -3,7 +3,8 @@ FROM python:3.12-slim-bookworm
 
 # Set environment variables for the virtual environment and path
 ENV NIXPACKS_PATH=/opt/venv/bin:$NIXPACKS_PATH
-ENV PYTHONUNBUFFERED=1 # Ensures Python output is unbuffered, good for logs
+# Ensures Python output is unbuffered, good for logs
+ENV PYTHONUNBUFFERED=1
 
 # Set the working directory inside the container
 WORKDIR /app
