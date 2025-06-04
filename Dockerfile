@@ -35,5 +35,5 @@ RUN python -m venv --copies /opt/venv && \
 COPY . /app
 
 # Set the command to run your Flask application using Gunicorn
-# This assumes your main Flask app instance is named 'app' in 'main.py'
-CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "main:app"]
+# Explicitly use the full path to gunicorn within the virtual environment
+CMD ["/opt/venv/bin/gunicorn", "--bind", "0.0.0.0:$PORT", "main:app"]
