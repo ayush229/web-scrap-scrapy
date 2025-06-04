@@ -185,7 +185,8 @@ def run_scrapy_spider(urls_str, scrape_mode, crawl_enabled, max_pages, unique_co
         '-a', f'scrape_mode={scrape_mode}',
         '-a', f'crawl_enabled={str(crawl_enabled).lower()}',
         '-a', f'max_pages={max_pages}',
-        '-o', output_filepath # Use -o for direct output to file
+        # CORRECTED: Pass output_file as an argument to the spider
+        '-a', f'output_file={output_filepath}'
     ]
 
     logger.info(f"Running Scrapy command: {' '.join(command)}")
@@ -205,7 +206,7 @@ def run_scrapy_spider(urls_str, scrape_mode, crawl_enabled, max_pages, unique_co
         if os.path.exists(output_filepath):
             with open(output_filepath, 'r', encoding='utf-8') as f:
                 scraped_data = json.load(f)
-                return {"status": "success", "results": scraped_data} # Scrapy results are already a list of dictionaries
+                return {"status": "success", "results": scraped_data.get("results", [])} # Scrapy results are already a list of dictionaries
         else:
             logger.error(f"Scrapy output file not found after execution: {output_filepath}")
             return {"status": "error", "error": "Scrapy output file not found."}
@@ -265,7 +266,7 @@ def scrape_and_store():
         )
 
         if scrapy_result and scrapy_result.get("status") == "success":
-            # The 'results' key from run_scrapy_spider contains the list of scraped items
+            # The 'results' key from run_scrapy_spider now directly contains the list of scraped items
             scraped_items = scrapy_result.get("results", [])
 
             # Transform Scrapy output to match file1's structure for 'results'
@@ -373,14 +374,13 @@ Website content: """
             prompt_text += f"\n--- Content from {content_obj.get('url', 'Unknown URL')} ---\n"
             if content_obj.get('content'): # This means it's a beautify result
                 for section in content_obj.get('content', []):
-                    heading = section.get('heading', '') or ""
-                    paragraphs = section.get('paragraphs', []) or []
-                    if heading:
-                        prompt_text += f"Heading: {heading}\n"
-                        content_added = True
-                    if paragraphs:
-                        prompt_text += "\n".join(paragraphs) + "\n"
-                        content_added = True
+                    heading_data = section.get('heading')
+                    heading_text = heading_data.get("text", "") if isinstance(heading_data, dict) else heading_data
+                    page_content.append({
+                        "heading": heading_text or None,
+                        "paragraphs": section.get("content", [])
+                    })
+                relevant_sections.append({"url": page_result["url"], "content": page_content})
             elif content_obj.get('raw_data'): # This means it's a raw result
                 prompt_text += content_obj['raw_data'] + "\n"
                 content_added = True
