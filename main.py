@@ -185,7 +185,7 @@ def run_scrapy_spider(urls_str, scrape_mode, crawl_enabled, max_pages, unique_co
         '-a', f'scrape_mode={scrape_mode}',
         '-a', f'crawl_enabled={str(crawl_enabled).lower()}',
         '-a', f'max_pages={max_pages}',
-        # CORRECTED: Pass output_file as an argument to the spider
+        # CORRECTED: Pass output_file as an argument to the spider 
         '-a', f'output_file={output_filepath}'
     ]
 
@@ -376,11 +376,9 @@ Website content: """
                 for section in content_obj.get('content', []):
                     heading_data = section.get('heading')
                     heading_text = heading_data.get("text", "") if isinstance(heading_data, dict) else heading_data
-                    page_content.append({
-                        "heading": heading_text or None,
-                        "paragraphs": section.get("content", [])
-                    })
-                relevant_sections.append({"url": page_result["url"], "content": page_content})
+                    prompt_text += f"Heading: {heading_text}\n" if heading_text else ""
+                    prompt_text += "\n".join(section.get('paragraphs', [])) + "\n"
+                    content_added = True
             elif content_obj.get('raw_data'): # This means it's a raw result
                 prompt_text += content_obj['raw_data'] + "\n"
                 content_added = True
