@@ -19,6 +19,19 @@ class PageContentItem(scrapy.Item):
 class GeneralPurposeSpider(scrapy.Spider):
     name = 'general_purpose_spider'
 
+    # --- Added/Modified for 403 Error Handling ---
+    # Set a common User-Agent to mimic a browser
+    custom_settings = {
+        'USER_AGENT': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        'ROBOTSTXT_OBEY': False, # Disable robots.txt obedience (use with caution!)
+        'DOWNLOAD_DELAY': 1, # Add a small delay to avoid being too aggressive
+        'RANDOMIZE_DOWNLOAD_DELAY': True, # Randomize the delay
+        # 'HTTPERROR_ALLOWED_CODES': [403], # Uncomment this if you want parse_page to receive 403 responses
+    }
+    # If you want to process 403 responses within parse_page, add this line:
+    handle_httpstatus_list = [403]
+    # -----------------------------------------------
+
     def __init__(self, *args, **kwargs):
         super(GeneralPurposeSpider, self).__init__(*args, **kwargs)
         self.start_urls = kwargs.get('start_urls', '').split(',')
@@ -52,6 +65,18 @@ class GeneralPurposeSpider(scrapy.Spider):
             yield scrapy.Request(url=url, callback=self.parse_page, meta={'depth': 0})
 
     def parse_page(self, response):
+        # Check if the response status is not 200 (OK)
+        if response.status != 200:
+            logger.warning(f"Failed to retrieve {response.url} with status {response.status}")
+            item = PageContentItem()
+            item['url'] = response.url
+            item['status'] = 'failed'
+            item['type'] = self.scrape_mode # Still record the scrape mode attempt
+            item['data'] = None
+            item['error'] = f"HTTP status {response.status}"
+            self.results.append(dict(item))
+            return # Stop processing this response if it's an error
+
         self.pages_crawled_count += 1
         logger.info(f"Processing page {self.pages_crawled_count}/{self.max_pages}: {response.url}")
 
@@ -68,8 +93,8 @@ class GeneralPurposeSpider(scrapy.Spider):
             extracted_links = []
 
             # Find common content containers (similar to BeautifulSoup's find_all(['section', 'div', 'article']))
-            # Using XPath for robustness, but CSS selectors can also be used. 
-            # This selection is a general attempt; real-world sites might need more specific selectors. 
+            # Using XPath for robustness, but CSS selectors can also be used.
+            # This selection is a general attempt; real-world sites might need more specific selectors.
             content_sections = response.xpath('//body//*[self::section or self::div or self::article or self::main]')
 
             if not content_sections:
@@ -92,7 +117,7 @@ class GeneralPurposeSpider(scrapy.Spider):
                         h_text = h.xpath('string()').get(default='').strip()
                         if h_text:
                             section_data["heading"] = {"tag": h.xpath('name()').get(), "text": h_text}
-                            break # Found a heading for this section 
+                            break # Found a heading for this section
 
                 # Extract paragraphs and list items
                 paragraphs_and_lists = sec.xpath('.//p|.//li')
@@ -127,11 +152,11 @@ class GeneralPurposeSpider(scrapy.Spider):
 
                 for link in extracted_links:
                     parsed_link = urlparse(link)
-                    # Check if the link is within the allowed domain and is HTTP/HTTPS 
+                    # Check if the link is within the allowed domain and is HTTP/HTTPS
                     if parsed_link.scheme in ['http', 'https'] and parsed_link.netloc == self.domain_to_crawl:
                         # Use a set in meta to track URLs seen in the current crawl to avoid redundant requests
-                        # This 'crawled_urls' set should ideally be managed by Scrapy's DuplicatesFilter, 
-                        # but adding it here for explicit control within the spider's logic if needed. 
+                        # This 'crawled_urls' set should ideally be managed by Scrapy's DuplicatesFilter,
+                        # but adding it here for explicit control within the spider's logic if needed.
                         # Scrapy's scheduler handles duplicates effectively by default.
                         if link not in response.request.meta.get('crawled_urls', set()): # Avoid re-requesting in the same crawl
                             # We need to pass the scrape_mode and other args to the next request
@@ -171,7 +196,7 @@ class GeneralPurposeSpider(scrapy.Spider):
 
 # This part is for running the spider from an external script
 # (e.g., your Flask app). It will not be directly executed when `scrapy_spider.py`
-# is imported by Scrapy itself. 
+# is imported by Scrapy itself.
 if __name__ == '__main__':
     from scrapy.crawler import CrawlerProcess
     from scrapy.utils.project import get_project_settings
@@ -184,9 +209,6 @@ if __name__ == '__main__':
     # settings.set('LOG_LEVEL', 'INFO')
     # settings.set('ROBOTSTXT_OBEY', False) # Be cautious with this in production
 
-    # If you have a full Scrapy project, you'd usually run it with:
-    # scrapy crawl general_purpose_spider -a start_urls=... -a output_file=... 
-
     # For direct execution and testing, let's set up argument parsing
     parser = argparse.ArgumentParser(description='Run GeneralPurposeSpider.')
     parser.add_argument('--start_urls', required=True, help='Comma-separated URLs to start scraping from.')
@@ -194,10 +216,10 @@ if __name__ == '__main__':
     parser.add_argument('--crawl_enabled', default='false', help='Enable crawling: "true" or "false".')
     parser.add_argument('--max_pages', type=int, default=50, help='Maximum pages to crawl if crawling is enabled.')
     parser.add_argument('--output_file', required=True, help='Path to the output JSON file.')
-    
+
     args = parser.parse_args()
 
-    # Pass all arguments to the spider 
+    # Pass all arguments to the spider
     process = CrawlerProcess(settings)
     process.crawl(GeneralPurposeSpider,
                     start_urls=args.start_urls,
@@ -205,5 +227,5 @@ if __name__ == '__main__':
                     crawl_enabled=args.crawl_enabled,
                     max_pages=args.max_pages,
                     output_file=args.output_file)
-    
+
     process.start() # The script will block here until the crawl finishes
