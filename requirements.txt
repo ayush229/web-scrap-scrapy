@@ -1,0 +1,12 @@
+beautifulsoup4==4.12.2
+requests==2.31.0
+Flask==2.3.2
+python-dotenv==1.0.0
+gunicorn==20.1.0
+flask-cors==4.0.0
+together
+Scrapy==2.11.1  # Added Scrapy
+twisted==22.10.0 # Scrapy dependency
+zope.interface==6.2 # Scrapy dependency
+service_identity==21.1.0 # Often needed by Scrapy for TLS/SSL
+itemloaders==1.1.0 # Useful for Scrapy item processing
